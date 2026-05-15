@@ -5,12 +5,14 @@ import "./index.css";
 import ChatPage from "./pages/ChatPage";
 import AutobiographyPage from "./pages/AutobiographyPage";
 import MemoirReaderPage from "./pages/MemoirReaderPage";
+import OnboardingPage from "./pages/OnboardingPage";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/chat" replace />} />
+        <Route path="/" element={<Navigate to="/onboarding" replace />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/home" element={<Navigate to="/chat" replace />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/autobiography" element={<AutobiographyPage />} />
