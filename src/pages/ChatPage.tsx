@@ -5,6 +5,7 @@ import MobileFrame from "@/components/MobileFrame";
 import ListeningIndicator from "@/components/chat/ListeningIndicator";
 import MessageList from "@/components/chat/MessageList";
 import TextInputSheet from "@/components/chat/TextInputSheet";
+import SeedMessagesPanel from "@/components/dev/SeedMessagesPanel";
 import { useChatSession } from "@/hooks/useChatSession";
 import {
   isSpeechSupported,
@@ -113,6 +114,7 @@ export default function ChatPage() {
   const isListening = mode === "listening";
 
   return (
+    <>
     <MobileFrame>
       <header className="sticky top-0 z-10 flex items-center justify-between bg-[#fcfcfc] px-6 py-4">
         <button
@@ -203,5 +205,13 @@ export default function ChatPage() {
 
       <BottomNav />
     </MobileFrame>
+
+    {import.meta.env.DEV && (
+      <SeedMessagesPanel
+        onSeed={(text) => void chat.send(text)}
+        disabled={chat.isSending || chat.isLoading || mode !== "idle"}
+      />
+    )}
+    </>
   );
 }
