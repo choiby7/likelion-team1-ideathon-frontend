@@ -6,6 +6,7 @@ import ChatPage from "./pages/ChatPage";
 import AutobiographyPage from "./pages/AutobiographyPage";
 import MemoirReaderPage from "./pages/MemoirReaderPage";
 import OnboardingPage from "./pages/OnboardingPage";
+import MicPermissionPage from "./pages/MicPermissionPage";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <Routes>
         <Route path="/" element={<Navigate to="/onboarding" replace />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/mic-permission" element={<MicPermissionPage />} />
         <Route path="/home" element={<Navigate to="/chat" replace />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/autobiography" element={<AutobiographyPage />} />

@@ -49,7 +49,7 @@ function OnboardingPage() {
         {/* 버튼 영역 */}
         <section className="mt-36 space-y-4">
           <button
-            onClick={handleComingSoon}
+            onClick={() => navigate("/mic-permission")}
             className="w-full h-[62px] rounded-[12px] bg-[#FEE500] border-[1.5px] border-[#222] shadow-[4px_5px_0_#222] flex items-center justify-center gap-3 text-[18px] font-medium text-[#222] transition duration-200 hover:-translate-y-1 hover:shadow-[6px_7px_0_#222]"
           >
             <span className="text-[22px]">💬</span>
