@@ -37,7 +37,7 @@ function SettingsPage() {
 
           <div className="mt-5 border-t border-[#eeeeee] pt-5">
             <button
-              onClick={() => alert("AI 내레이터 설정은 개발 예정이에요")}
+              onClick={() => navigate("/settings/narrator")}
               className="flex w-full items-center justify-between text-left"
             >
               <span className="text-[18px] text-[#222]">

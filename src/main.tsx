@@ -10,6 +10,7 @@ import MicPermissionPage from "./pages/MicPermissionPage";
 import HomePage from "./pages/HomePage";
 import HelpPage from "./pages/HelpPage";
 import SettingsPage from "./pages/SettingsPage";
+import NarratorSettingsPage from "./pages/NarratorSettingsPage";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -24,6 +25,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/autobiography/:id" element={<MemoirReaderPage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/narrator" element={<NarratorSettingsPage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,
