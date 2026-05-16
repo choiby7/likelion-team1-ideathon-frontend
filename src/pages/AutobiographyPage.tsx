@@ -90,7 +90,7 @@ export default function AutobiographyPage() {
 
   const handleAction = (m: MemoirSummary) => {
     if (m.status === "draft") {
-      navigate(`/chat?memoirId=${m.id}`);
+      navigate(`/autobiography/${m.id}/continue`);
     } else {
       navigate(`/autobiography/${m.id}`);
     }
@@ -99,11 +99,11 @@ export default function AutobiographyPage() {
   return (
     <MobileFrame>
       <div className="min-h-screen bg-slate-100 pb-44">
-        <div className="bg-slate-100 px-6 pb-6 pt-12 text-center">
-          <p className="text-base font-medium text-slate-500">자서전</p>
-        </div>
+        <header className="sticky top-0 z-10 flex items-center justify-center bg-slate-100 px-4 py-4">
+          <h1 className="text-[26px] font-bold text-[#212529]">자서전</h1>
+        </header>
 
-        <section className="px-6">
+        <section className="px-6 pt-8">
           <h1 className="text-3xl font-bold text-slate-900">나의 회고록</h1>
           <p className="mt-2 text-base leading-6 text-slate-500">
             그동안 기록하신 소중한

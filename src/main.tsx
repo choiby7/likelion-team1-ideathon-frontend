@@ -5,6 +5,7 @@ import "./index.css";
 import ChatPage from "./pages/ChatPage";
 import AutobiographyPage from "./pages/AutobiographyPage";
 import MemoirReaderPage from "./pages/MemoirReaderPage";
+import MemoirContinuePage from "./pages/MemoirContinuePage";
 import OnboardingPage from "./pages/OnboardingPage";
 import MicPermissionPage from "./pages/MicPermissionPage";
 import HomePage from "./pages/HomePage";
@@ -23,6 +24,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/autobiography" element={<AutobiographyPage />} />
         <Route path="/autobiography/:id" element={<MemoirReaderPage />} />
+        <Route
+          path="/autobiography/:id/continue"
+          element={<MemoirContinuePage />}
+        />
         <Route path="/help" element={<HelpPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/narrator" element={<NarratorSettingsPage />} />

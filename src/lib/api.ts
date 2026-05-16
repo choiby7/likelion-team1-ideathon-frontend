@@ -5,7 +5,7 @@ import {
   writeActiveDraftId,
   writeMemoirs,
 } from "./storage";
-import { generateReply } from "./mockAi";
+import { generateReply, generateSummary } from "./mockAi";
 
 const FALLBACK_TITLE = "제목 없는 이야기";
 
@@ -142,6 +142,12 @@ export async function deleteMemoir(memoirId: string): Promise<void> {
   const memoirs = readMemoirs().filter((m) => m.id !== memoirId);
   writeMemoirs(memoirs);
   if (readActiveDraftId() === memoirId) writeActiveDraftId(null);
+}
+
+export async function getMemoirSummary(memoirId: string): Promise<string> {
+  const memoir = readMemoirs().find((m) => m.id === memoirId);
+  if (!memoir) throw new Error(`Memoir not found: ${memoirId}`);
+  return generateSummary(memoir.messages);
 }
 
 export async function sendChatMessage(

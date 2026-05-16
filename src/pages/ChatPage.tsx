@@ -114,12 +114,8 @@ export default function ChatPage() {
 
   return (
     <MobileFrame>
-      <header className="sticky top-0 z-10 flex items-center justify-between bg-[#fcfcfc] px-6 py-4">
-        <button
-          aria-label="뒤로가기"
-          className="p-2"
-          onClick={() => navigate(-1)}
-        >
+      <header className="sticky top-0 z-10 flex items-center justify-between bg-[#fcfcfc] px-4 py-4">
+        <button onClick={() => navigate(-1)} aria-label="뒤로가기">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -134,10 +130,14 @@ export default function ChatPage() {
             />
           </svg>
         </button>
-        <h1 className="text-[24px] font-bold tracking-tight text-[#212529]">
-          Memoreal
-        </h1>
-        <button aria-label="설정" className="p-2">
+
+        <h1 className="text-[26px] font-bold text-[#212529]">Memoreal</h1>
+
+        <button
+          onClick={() => navigate("/settings")}
+          aria-label="설정"
+          className="rounded-full p-2 transition duration-200 hover:bg-slate-100 hover:scale-110 active:scale-95"
+        >
           <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
             <circle cx="12" cy="12" r="3" stroke="#1f2937" strokeWidth="2" />
             <path

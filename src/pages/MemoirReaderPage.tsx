@@ -84,7 +84,7 @@ export default function MemoirReaderPage() {
 
       {memoir.status === "draft" && (
         <button
-          onClick={() => navigate(`/chat?memoirId=${memoir.id}`)}
+          onClick={() => navigate(`/autobiography/${memoir.id}/continue`)}
           className="fixed bottom-32 left-1/2 z-20 -translate-x-1/2 rounded-full px-6 py-3 text-base font-semibold shadow-lg"
           style={{ backgroundColor: "#ffcc00", color: "#1f2937" }}
         >
