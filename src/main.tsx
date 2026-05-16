@@ -9,6 +9,7 @@ import OnboardingPage from "./pages/OnboardingPage";
 import MicPermissionPage from "./pages/MicPermissionPage";
 import HomePage from "./pages/HomePage";
 import HelpPage from "./pages/HelpPage";
+import SettingsPage from "./pages/SettingsPage";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -22,6 +23,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/autobiography" element={<AutobiographyPage />} />
         <Route path="/autobiography/:id" element={<MemoirReaderPage />} />
         <Route path="/help" element={<HelpPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,

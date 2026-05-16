@@ -73,7 +73,7 @@ function HelpPage() {
 
   return (
     <MobileFrame>
-      <main className="min-h-screen bg-[#fcfcfc] px-4 pb-32">
+      <main className="min-h-screen bg-[#FFF8F1] px-4 pb-32">
         {/* 상단 헤더 */}
         <header className="flex items-center justify-between py-4">
           <button onClick={() => navigate(-1)} aria-label="뒤로가기">
@@ -92,7 +92,11 @@ function HelpPage() {
             Memoreal
           </h1>
 
-          <button aria-label="설정">
+          <button
+            onClick={() => navigate("/settings")}
+            aria-label="설정"
+            className="rounded-full p-2 transition duration-200 hover:bg-[#fff3bf] hover:scale-110 active:scale-95"
+          >
             <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
               <circle cx="12" cy="12" r="3" stroke="#64748b" strokeWidth="2" />
               <path
