@@ -7,7 +7,6 @@ import {
   type MemoirMeta,
 } from "./storage";
 import { createSession, fetchHistory, sendTextMessage } from "./chatApi";
-import { generateSummary } from "./mockAi";
 
 const FALLBACK_TITLE = "제목 없는 이야기";
 
@@ -184,14 +183,4 @@ export async function sendChatMessage(
     createdAt: Date.now(),
   };
   return appendAndPersist(memoirId, userMessage, aiMessage);
-}
-
-export async function getMemoirSummary(memoirId: string): Promise<string> {
-  let messages: Message[] = [];
-  try {
-    messages = await fetchHistory(memoirId);
-  } catch {
-    /* fall through with empty */
-  }
-  return generateSummary(messages);
 }
