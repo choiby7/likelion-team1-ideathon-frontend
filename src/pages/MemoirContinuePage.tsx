@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import MobileFrame from "@/components/MobileFrame";
-import { getMemoir, getMemoirSummary } from "@/lib/api";
+import { getMemoir } from "@/lib/api";
 import { INITIAL_AI_GREETING } from "@/lib/mockAi";
 import type { Memoir } from "@/types/memoir";
 
@@ -10,7 +10,6 @@ export default function MemoirContinuePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [memoir, setMemoir] = useState<Memoir | null>(null);
-  const [summary, setSummary] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,9 +26,6 @@ export default function MemoirContinuePage() {
         return;
       }
       setMemoir(found);
-      const s = await getMemoirSummary(id);
-      if (cancelled) return;
-      setSummary(s);
       setLoading(false);
     })();
     return () => {
@@ -51,6 +47,9 @@ export default function MemoirContinuePage() {
   const lastAiQuestion =
     [...memoir.messages].reverse().find((m) => m.role === "ai")?.text ??
     INITIAL_AI_GREETING;
+  const lastUserMessage = [...memoir.messages]
+    .reverse()
+    .find((m) => m.role === "user");
 
   return (
     <MobileFrame>
@@ -89,26 +88,18 @@ export default function MemoirContinuePage() {
           </div>
         </section>
 
-        <section className="mt-8 px-5">
-          <div className="flex items-start gap-3">
-            <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white shadow-sm"
-              style={{ backgroundColor: "#7c3aed" }}
-            >
-              J
+        {lastUserMessage && (
+          <section className="mt-6 px-5">
+            <p className="text-base font-medium text-slate-700">
+              마지막으로 들려주신 이야기
+            </p>
+            <div className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
+              <p className="line-clamp-4 whitespace-pre-line text-[16px] leading-7 text-slate-700">
+                {lastUserMessage.text}
+              </p>
             </div>
-            <div className="flex max-w-[265px] flex-col gap-1">
-              <span className="text-[16px] leading-7 text-slate-600">
-                이전 대화 요약
-              </span>
-              <div className="rounded-2xl rounded-tl-sm bg-white px-5 py-4 shadow-sm">
-                <p className="whitespace-pre-line text-[16px] leading-7 text-slate-700">
-                  {summary}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="mt-8 px-5">
           <div className="flex items-start gap-3">
