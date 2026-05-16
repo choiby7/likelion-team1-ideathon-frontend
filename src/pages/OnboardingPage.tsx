@@ -1,25 +1,13 @@
 import { useState } from "react";
-import { fetchKakaoLoginUrl } from "@/lib/authApi";
+import { kakaoLoginUrl } from "@/lib/authApi";
 import onboardingImage from "../assets/onboarding-image.png";
 
 function OnboardingPage() {
   const [isStarting, setIsStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleKakaoStart = async () => {
+  const handleKakaoStart = () => {
     setIsStarting(true);
-    setError(null);
-    try {
-      const url = await fetchKakaoLoginUrl();
-      window.location.href = url;
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? `로그인 주소를 불러올 수 없습니다: ${e.message}`
-          : "로그인 주소를 불러올 수 없습니다.",
-      );
-      setIsStarting(false);
-    }
+    window.location.href = kakaoLoginUrl();
   };
 
   const handleComingSoon = () => {
@@ -66,11 +54,6 @@ function OnboardingPage() {
 
         {/* 버튼 영역 */}
         <section className="mt-36 space-y-4">
-          {error && (
-            <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
           <button
             onClick={handleKakaoStart}
             disabled={isStarting}

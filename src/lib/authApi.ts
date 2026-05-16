@@ -6,12 +6,10 @@ import type {
   User,
 } from "@/types/auth";
 
-export async function fetchKakaoLoginUrl(): Promise<string> {
-  const data = await apiRequest<{ url: string }>("/api/auth/kakao/url", {
-    method: "GET",
-    skipAuthRetry: true,
-  });
-  return data.url;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+
+export function kakaoLoginUrl(): string {
+  return `${BASE_URL}/oauth2/authorization/kakao`;
 }
 
 export async function fetchMe(): Promise<User> {

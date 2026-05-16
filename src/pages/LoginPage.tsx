@@ -1,24 +1,12 @@
 import { useState } from "react";
-import { fetchKakaoLoginUrl } from "@/lib/authApi";
+import { kakaoLoginUrl } from "@/lib/authApi";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleKakaoLogin = async () => {
+  const handleKakaoLogin = () => {
     setIsLoading(true);
-    setError(null);
-    try {
-      const url = await fetchKakaoLoginUrl();
-      window.location.href = url;
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? `로그인 주소를 불러올 수 없습니다: ${e.message}`
-          : "로그인 주소를 불러올 수 없습니다.",
-      );
-      setIsLoading(false);
-    }
+    window.location.href = kakaoLoginUrl();
   };
 
   return (
@@ -42,12 +30,6 @@ export default function LoginPage() {
         </section>
 
         <div className="flex-1" />
-
-        {error && (
-          <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </p>
-        )}
 
         <button
           onClick={handleKakaoLogin}
