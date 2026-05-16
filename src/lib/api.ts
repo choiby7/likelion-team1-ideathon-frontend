@@ -4,12 +4,19 @@ import {
   readMemoirs,
   writeActiveDraftId,
   writeMemoirs,
+  type MemoirMeta,
 } from "./storage";
-import { generateReply, generateSummary } from "./mockAi";
+import {
+  createSession,
+  fetchHistory,
+  sendTextMessage,
+  sendVoiceMessage as sendVoice,
+} from "./chatApi";
+import { generateSummary } from "./mockAi";
 
 const FALLBACK_TITLE = "제목 없는 이야기";
 
-function toSummary(m: Memoir): MemoirSummary {
+function toSummary(m: MemoirMeta): MemoirSummary {
   return {
     id: m.id,
     chapter: m.chapter,
@@ -20,36 +27,29 @@ function toSummary(m: Memoir): MemoirSummary {
   };
 }
 
-function newId(): string {
-  return crypto.randomUUID();
-}
-
-function makeMessage(
-  partial: Omit<Message, "id" | "createdAt">,
-  now = Date.now(),
-): Message {
-  return { id: newId(), createdAt: now, ...partial };
-}
-
-function nextChapter(memoirs: Memoir[]): number {
+function nextChapter(memoirs: MemoirMeta[]): number {
   return memoirs.reduce((max, m) => Math.max(max, m.chapter), 0) + 1;
 }
 
-function deriveTitle(memoir: Memoir): string {
-  if (memoir.title && memoir.title !== FALLBACK_TITLE) return memoir.title;
-  const firstUser = memoir.messages.find((m) => m.role === "user");
+function deriveTitle(meta: MemoirMeta, messages: Message[]): string {
+  if (meta.title && meta.title !== FALLBACK_TITLE) return meta.title;
+  const firstUser = messages.find((m) => m.role === "user");
   if (!firstUser) return FALLBACK_TITLE;
   const trimmed = firstUser.text.trim().replace(/\s+/g, " ");
   if (!trimmed) return FALLBACK_TITLE;
   return trimmed.length > 12 ? trimmed.slice(0, 12) + "…" : trimmed;
 }
 
-function upsert(memoirs: Memoir[], memoir: Memoir): Memoir[] {
-  const idx = memoirs.findIndex((m) => m.id === memoir.id);
-  if (idx === -1) return [memoir, ...memoirs];
+function upsert(memoirs: MemoirMeta[], meta: MemoirMeta): MemoirMeta[] {
+  const idx = memoirs.findIndex((m) => m.id === meta.id);
+  if (idx === -1) return [meta, ...memoirs];
   const copy = memoirs.slice();
-  copy[idx] = memoir;
+  copy[idx] = meta;
   return copy;
+}
+
+function metaToMemoir(meta: MemoirMeta, messages: Message[]): Memoir {
+  return { ...meta, messages };
 }
 
 export async function listMemoirs(): Promise<MemoirSummary[]> {
@@ -57,69 +57,56 @@ export async function listMemoirs(): Promise<MemoirSummary[]> {
 }
 
 export async function getMemoir(id: string): Promise<Memoir | null> {
-  return readMemoirs().find((m) => m.id === id) ?? null;
+  const meta = readMemoirs().find((m) => m.id === id);
+  if (!meta) return null;
+  let messages: Message[] = [];
+  try {
+    messages = await fetchHistory(id);
+  } catch {
+    messages = [];
+  }
+  return metaToMemoir(meta, messages);
 }
 
 export async function getActiveDraft(): Promise<Memoir | null> {
   const id = readActiveDraftId();
   if (!id) return null;
-  const memoir = readMemoirs().find((m) => m.id === id);
-  if (!memoir || memoir.status !== "draft") {
+  const meta = readMemoirs().find((m) => m.id === id);
+  if (!meta || meta.status !== "draft") {
     writeActiveDraftId(null);
     return null;
   }
-  return memoir;
+  let messages: Message[] = [];
+  try {
+    messages = await fetchHistory(id);
+  } catch {
+    messages = [];
+  }
+  return metaToMemoir(meta, messages);
 }
 
-export async function createMemoir(initialAiPrompt: string): Promise<Memoir> {
+// Parks the current draft pointer so the next /chat visit starts a fresh
+// session (existing draft remains in the memoirs list, just no longer "active").
+export async function clearActiveDraft(): Promise<void> {
+  writeActiveDraftId(null);
+}
+
+export async function createMemoir(_initialAiPrompt?: string): Promise<Memoir> {
+  void _initialAiPrompt; // backend doesn't persist an initial greeting; UI handles placeholder
   const memoirs = readMemoirs();
+  const sessionId = await createSession();
   const now = Date.now();
-  const greeting: Message = makeMessage(
-    { role: "ai", text: initialAiPrompt },
-    now,
-  );
-  const memoir: Memoir = {
-    id: newId(),
+  const meta: MemoirMeta = {
+    id: sessionId,
     chapter: nextChapter(memoirs),
     title: FALLBACK_TITLE,
     status: "draft",
-    messages: [greeting],
     createdAt: now,
     updatedAt: now,
   };
-  writeMemoirs(upsert(memoirs, memoir));
-  writeActiveDraftId(memoir.id);
-  return memoir;
-}
-
-export async function appendMessage(
-  memoirId: string,
-  msg: Omit<Message, "id" | "createdAt">,
-): Promise<Memoir> {
-  const memoirs = readMemoirs();
-  const current = memoirs.find((m) => m.id === memoirId);
-  if (!current) throw new Error(`Memoir not found: ${memoirId}`);
-  const now = Date.now();
-  const next: Memoir = {
-    ...current,
-    messages: [...current.messages, makeMessage(msg, now)],
-    updatedAt: now,
-  };
-  next.title = deriveTitle(next);
-  writeMemoirs(upsert(memoirs, next));
-  return next;
-}
-
-export async function updateMemoirTitle(
-  memoirId: string,
-  title: string,
-): Promise<Memoir> {
-  const memoirs = readMemoirs();
-  const current = memoirs.find((m) => m.id === memoirId);
-  if (!current) throw new Error(`Memoir not found: ${memoirId}`);
-  const next: Memoir = { ...current, title, updatedAt: Date.now() };
-  writeMemoirs(upsert(memoirs, next));
-  return next;
+  writeMemoirs(upsert(memoirs, meta));
+  writeActiveDraftId(meta.id);
+  return metaToMemoir(meta, []);
 }
 
 export async function completeMemoir(memoirId: string): Promise<Memoir> {
@@ -127,7 +114,7 @@ export async function completeMemoir(memoirId: string): Promise<Memoir> {
   const current = memoirs.find((m) => m.id === memoirId);
   if (!current) throw new Error(`Memoir not found: ${memoirId}`);
   const now = Date.now();
-  const next: Memoir = {
+  const next: MemoirMeta = {
     ...current,
     status: "completed",
     completedAt: now,
@@ -135,50 +122,103 @@ export async function completeMemoir(memoirId: string): Promise<Memoir> {
   };
   writeMemoirs(upsert(memoirs, next));
   if (readActiveDraftId() === memoirId) writeActiveDraftId(null);
-  return next;
+  let messages: Message[] = [];
+  try {
+    messages = await fetchHistory(memoirId);
+  } catch {
+    /* keep empty */
+  }
+  return metaToMemoir(next, messages);
 }
 
-export async function deleteMemoir(memoirId: string): Promise<void> {
-  const memoirs = readMemoirs().filter((m) => m.id !== memoirId);
-  writeMemoirs(memoirs);
-  if (readActiveDraftId() === memoirId) writeActiveDraftId(null);
+function newMessageId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export async function getMemoirSummary(memoirId: string): Promise<string> {
-  const memoir = readMemoirs().find((m) => m.id === memoirId);
-  if (!memoir) throw new Error(`Memoir not found: ${memoirId}`);
-  return generateSummary(memoir.messages);
+async function appendAndPersist(
+  memoirId: string,
+  user: Message,
+  ai: Message,
+): Promise<{ userMessage: Message; aiMessage: Message; memoir: Memoir }> {
+  const memoirs = readMemoirs();
+  const current = memoirs.find((m) => m.id === memoirId);
+  if (!current) throw new Error(`Memoir not found: ${memoirId}`);
+
+  // Fetch authoritative history so display reflects what backend actually stored.
+  // Backend persists both user + assistant messages during /message and /voice calls.
+  let messages: Message[];
+  try {
+    messages = await fetchHistory(memoirId);
+  } catch {
+    // Fall back to optimistic append if history fetch fails.
+    messages = [user, ai];
+  }
+
+  const nextMeta: MemoirMeta = {
+    ...current,
+    title: deriveTitle(current, messages),
+    updatedAt: Date.now(),
+  };
+  writeMemoirs(upsert(memoirs, nextMeta));
+
+  return {
+    userMessage: user,
+    aiMessage: ai,
+    memoir: metaToMemoir(nextMeta, messages),
+  };
 }
 
 export async function sendChatMessage(
   memoirId: string,
   userText: string,
 ): Promise<{ userMessage: Message; aiMessage: Message; memoir: Memoir }> {
-  const memoirs = readMemoirs();
-  const current = memoirs.find((m) => m.id === memoirId);
-  if (!current) throw new Error(`Memoir not found: ${memoirId}`);
-
   const now = Date.now();
-  const userMessage: Message = makeMessage(
-    { role: "user", text: userText },
-    now,
-  );
-  const historyWithUser = [...current.messages, userMessage];
-
-  const replyText = await generateReply(historyWithUser);
-  const aiMessage: Message = makeMessage(
-    { role: "ai", text: replyText },
-    Date.now(),
-  );
-
-  const next: Memoir = {
-    ...current,
-    messages: [...historyWithUser, aiMessage],
-    updatedAt: Date.now(),
+  const userMessage: Message = {
+    id: newMessageId(),
+    role: "user",
+    text: userText,
+    createdAt: now,
   };
-  next.title = deriveTitle(next);
+  const { aiText } = await sendTextMessage(memoirId, userText);
+  const aiMessage: Message = {
+    id: newMessageId(),
+    role: "ai",
+    text: aiText,
+    createdAt: Date.now(),
+  };
+  return appendAndPersist(memoirId, userMessage, aiMessage);
+}
 
-  // Re-read in case of concurrent writes from other tabs (best effort, last-write-wins).
-  writeMemoirs(upsert(readMemoirs(), next));
-  return { userMessage, aiMessage, memoir: next };
+export async function sendVoiceMessage(
+  memoirId: string,
+  audio: Blob,
+  filename: string,
+): Promise<{ userMessage: Message; aiMessage: Message; memoir: Memoir }> {
+  const now = Date.now();
+  const { sttText, aiText } = await sendVoice(memoirId, audio, filename);
+  const userMessage: Message = {
+    id: newMessageId(),
+    role: "user",
+    text: sttText,
+    createdAt: now,
+  };
+  const aiMessage: Message = {
+    id: newMessageId(),
+    role: "ai",
+    text: aiText,
+    createdAt: Date.now(),
+  };
+  return appendAndPersist(memoirId, userMessage, aiMessage);
+}
+
+export async function getMemoirSummary(memoirId: string): Promise<string> {
+  let messages: Message[] = [];
+  try {
+    messages = await fetchHistory(memoirId);
+  } catch {
+    /* fall through with empty */
+  }
+  return generateSummary(messages);
 }

@@ -5,6 +5,7 @@ import {
   getActiveDraft,
   getMemoir,
   sendChatMessage,
+  sendVoiceMessage,
 } from "@/lib/api";
 import { INITIAL_AI_GREETING } from "@/lib/mockAi";
 import type { Memoir, Message } from "@/types/memoir";
@@ -18,6 +19,7 @@ export interface ChatSessionApi {
   isSending: boolean;
   error: string | null;
   send: (text: string) => Promise<void>;
+  sendVoice: (audio: Blob, filename: string) => Promise<void>;
   complete: () => Promise<void>;
 }
 
@@ -63,6 +65,13 @@ export function useChatSession(
     };
   }, [memoirIdFromUrl]);
 
+  const ensureMemoir = useCallback(async (): Promise<Memoir> => {
+    if (memoir) return memoir;
+    const created = await createMemoir();
+    setMemoir(created);
+    return created;
+  }, [memoir]);
+
   const send = useCallback(
     async (text: string) => {
       const value = text.trim();
@@ -72,13 +81,10 @@ export function useChatSession(
       setIsSending(true);
       setError(null);
       try {
-        let target = memoir;
-        if (!target) {
-          target = await createMemoir(INITIAL_AI_GREETING);
-        }
+        const target = await ensureMemoir();
 
         // Optimistic user message — show immediately so the UI doesn't pause
-        // for 800ms before the user sees their own message land.
+        // for the round-trip before the user sees their own message land.
         const optimisticUser: Message = {
           id: "optimistic-" + Date.now(),
           role: "user",
@@ -100,7 +106,28 @@ export function useChatSession(
         setIsSending(false);
       }
     },
-    [memoir],
+    [ensureMemoir],
+  );
+
+  const sendVoice = useCallback(
+    async (audio: Blob, filename: string) => {
+      if (sendingLockRef.current) return;
+      sendingLockRef.current = true;
+      setIsSending(true);
+      setError(null);
+      try {
+        const target = await ensureMemoir();
+        // No optimistic user bubble — STT text is unknown until backend responds.
+        const result = await sendVoiceMessage(target.id, audio, filename);
+        setMemoir(result.memoir);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "음성 전송 실패");
+      } finally {
+        sendingLockRef.current = false;
+        setIsSending(false);
+      }
+    },
+    [ensureMemoir],
   );
 
   const complete = useCallback(async () => {
@@ -122,6 +149,7 @@ export function useChatSession(
     isSending,
     error,
     send,
+    sendVoice,
     complete,
   };
 }

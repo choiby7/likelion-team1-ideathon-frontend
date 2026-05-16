@@ -1,11 +1,23 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
+import { clearActiveDraft } from "@/lib/api";
 
 function HomePage() {
+  const navigate = useNavigate();
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const handleSpeakClick = () => {
-    setIsSpeaking((prev) => !prev);
+  const handleSpeakClick = async () => {
+    if (isSpeaking) return;
+    setIsSpeaking(true);
+    // Always start a brand-new memoir from the home button — park the current
+    // draft so /chat doesn't auto-resume it.
+    await clearActiveDraft();
+    // Brief visual feedback ("듣는 중...") before handing off to the chat tab,
+    // where the mic button picks up in the recording state.
+    window.setTimeout(() => {
+      navigate("/chat?autoStart=1");
+    }, 350);
   };
 
   return (
