@@ -8,6 +8,7 @@ import MemoirReaderPage from "./pages/MemoirReaderPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import MicPermissionPage from "./pages/MicPermissionPage";
 import HomePage from "./pages/HomePage";
+import HelpPage from "./pages/HelpPage";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -20,7 +21,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/autobiography" element={<AutobiographyPage />} />
         <Route path="/autobiography/:id" element={<MemoirReaderPage />} />
-        <Route path="/help" element={<Navigate to="/chat" replace />} />
+        <Route path="/help" element={<HelpPage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,
