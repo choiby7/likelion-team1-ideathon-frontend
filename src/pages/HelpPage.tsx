@@ -2,9 +2,15 @@ import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import MobileFrame from "../components/MobileFrame";
 
+import helpServiceIcon from "../assets/icons/help-service.svg";
+import helpVoiceIcon from "../assets/icons/help-voice.svg";
+import helpFamilyIcon from "../assets/icons/help-family.svg";
+import helpCallIcon from "../assets/icons/help-call.svg";
+import helpPhoneIcon from "../assets/icons/help-phone.svg";
+
 type HelpItem = {
   title: string;
-  icon: JSX.Element;
+  icon: string;
   url: string;
 };
 
@@ -12,55 +18,22 @@ const helpItems: HelpItem[] = [
   {
     title: "서비스는 어떻게\n이용하나요?",
     url: "https://www.notion.so/",
-    icon: (
-      <path
-        d="M9 9h6v6H9zM12 17h.01M12 7h.01"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    ),
+    icon: helpServiceIcon,
   },
   {
     title: "내 목소리가 어떻게\n책이 되나요?",
     url: "https://www.notion.so/",
-    icon: (
-      <path
-        d="M8 4h8v16H8zM11 7h2"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    ),
+    icon: helpVoiceIcon,
   },
   {
     title: "가족과 어떻게\n공유하나요?",
     url: "https://www.notion.so/",
-    icon: (
-      <>
-        <circle cx="9" cy="9" r="2" fill="currentColor" />
-        <circle cx="15" cy="9" r="2" fill="currentColor" />
-        <path
-          d="M5 18c.4-2.5 2-4 4-4s3.6 1.5 4 4M11 18c.4-2.5 2-4 4-4s3.6 1.5 4 4"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </>
-    ),
+    icon: helpFamilyIcon,
   },
   {
     title: "상담원과 직접\n통화하고 싶어요",
     url: "https://www.notion.so/",
-    icon: (
-      <path
-        d="M7 12a5 5 0 0 1 10 0v3a2 2 0 0 1-2 2h-1M7 12v4M17 12v4M9 17h3"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
+    icon: helpCallIcon,
   },
 ];
 
@@ -134,10 +107,8 @@ function HelpPage() {
                   : ""
               }`}
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e8dfcf] text-[#7a6715]">
-                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-                  {item.icon}
-                </svg>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e8dfcf]">
+                <img src={item.icon} alt="" className="h-5 w-5" />
               </div>
 
               <p className="flex-1 whitespace-pre-line text-[17px] leading-7 text-[#333]">
@@ -154,7 +125,11 @@ function HelpPage() {
           onClick={() => openNotion("https://www.notion.so/")}
           className="mt-20 flex h-[60px] w-full items-center justify-center gap-3 rounded-[10px] bg-[#ffcc00] text-[19px] font-medium text-[#222] transition hover:-translate-y-1 hover:shadow-lg"
         >
-          <span>📞</span>
+          <img
+            src={helpPhoneIcon}
+            alt=""
+            className="h-5 w-5"
+          />
           상담원 연결하기
         </button>
 

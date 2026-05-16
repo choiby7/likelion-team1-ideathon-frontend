@@ -1,23 +1,13 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
-import { clearActiveDraft } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
 
 function HomePage() {
   const navigate = useNavigate();
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const handleSpeakClick = async () => {
-    if (isSpeaking) return;
-    setIsSpeaking(true);
-    // Always start a brand-new memoir from the home button — park the current
-    // draft so /chat doesn't auto-resume it.
-    await clearActiveDraft();
-    // Brief visual feedback ("듣는 중...") before handing off to the chat tab,
-    // where the mic button picks up in the recording state.
-    window.setTimeout(() => {
-      navigate("/chat?autoStart=1");
-    }, 350);
+  const handleSpeakClick = () => {
+    setIsSpeaking((prev) => !prev);
   };
 
   return (
@@ -38,10 +28,10 @@ function HomePage() {
         <section className="mt-16 flex justify-center">
           <button
             onClick={handleSpeakClick}
-            className={`w-[270px] h-[270px] rounded-full bg-[#f7d23b] flex flex-col items-center justify-center shadow-xl transition duration-300 ${
+            className={`w-[270px] h-[270px] rounded-full flex flex-col items-center justify-center shadow-xl transition duration-300 ${
               isSpeaking
-                ? "scale-105 shadow-[0_0_35px_rgba(247,210,59,0.85)]"
-                : "hover:scale-105"
+                ? "scale-105 bg-[#efc62f] shadow-[0_0_38px_rgba(239,198,47,0.9)]"
+                : "bg-[#f7d23b] hover:scale-105 hover:bg-[#efc62f]"
             }`}
           >
             <svg
@@ -72,18 +62,17 @@ function HomePage() {
           </button>
         </section>
 
-        {/* 활성화 표시 */}
-        <section className="mt-20 flex justify-center gap-2">
-          {[1, 2, 3, 4, 5].map((bar) => (
+        {/* 듣는 중 애니메이션 */}
+        <section className="mt-20 flex h-12 items-center justify-center gap-2">
+          {[0, 1, 2, 3, 4].map((bar) => (
             <span
               key={bar}
-              className={`w-3 rounded-full bg-[#a8b1c2] transition-all duration-300 ${
-                isSpeaking
-                  ? bar % 2 === 0
-                    ? "h-9"
-                    : "h-5"
-                  : "h-4"
+              className={`w-3 rounded-full bg-[#a8b1c2] ${
+                isSpeaking ? "listening-wave" : "h-4"
               }`}
+              style={{
+                animationDelay: `${bar * 0.12}s`,
+              }}
             />
           ))}
         </section>
@@ -92,15 +81,18 @@ function HomePage() {
         <section className="mt-28">
           <div className="h-2 w-full rounded-full bg-[#eef1f6] overflow-hidden">
             <div
-              className={`h-full rounded-full bg-[#7c8496] transition-all duration-500 ${
-                isSpeaking ? "w-2/3" : "w-1/3"
+              className={`h-full rounded-full bg-[#7c8496] ${
+                isSpeaking ? "progress-fill" : "w-1/3"
               }`}
             />
           </div>
         </section>
 
         {/* 자서전 보기 버튼 */}
-        <button className="mt-8 w-full h-[72px] rounded-[16px] bg-[#7c8496] text-white flex items-center justify-between px-7 text-[24px] font-bold transition hover:bg-[#6b7280]">
+        <button
+          onClick={() => navigate("/autobiography")}
+          className="mt-8 w-full h-[72px] rounded-[16px] bg-[#7c8496] text-white flex items-center justify-between px-7 text-[24px] font-bold transition hover:bg-[#6b7280] hover:scale-[1.01] active:scale-[0.98]"
+        >
           자서전 보기
           <span className="text-[36px]">→</span>
         </button>
