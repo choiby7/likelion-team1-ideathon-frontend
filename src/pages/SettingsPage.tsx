@@ -2,10 +2,23 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import MobileFrame from "../components/MobileFrame";
+import { useAuth } from "@/contexts/AuthContext";
 
 function SettingsPage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [dailyAlarm, setDailyAlarm] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      navigate("/login", { replace: true });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <MobileFrame>
@@ -67,6 +80,30 @@ function SettingsPage() {
                   dailyAlarm ? "left-[29px]" : "left-[3px]"
                 }`}
               />
+            </button>
+          </div>
+        </section>
+
+        {/* 계정 카드 */}
+        <section className="mt-6 rounded-[10px] border border-[#e7e7e7] bg-white px-6 py-6">
+          <h2 className="text-[17px] text-[#333]">계정</h2>
+
+          {user && (
+            <div className="mt-5 border-t border-[#eeeeee] pt-5">
+              <p className="text-[14px] text-[#888]">로그인 계정</p>
+              <p className="mt-1 text-[16px] text-[#222]">
+                {user.nickname}{user.email ? ` · ${user.email}` : ""}
+              </p>
+            </div>
+          )}
+
+          <div className="mt-5 border-t border-[#eeeeee] pt-5">
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="text-[18px] text-red-600 disabled:opacity-50"
+            >
+              {isLoggingOut ? "로그아웃 중..." : "로그아웃"}
             </button>
           </div>
         </section>
