@@ -7,12 +7,28 @@ import MessageList from "@/components/chat/MessageList";
 import TextInputSheet from "@/components/chat/TextInputSheet";
 import { useChatSession } from "@/hooks/useChatSession";
 import {
-  isRecordingSupported,
-  startRecording,
-  type RecordingSession,
-} from "@/lib/recording";
+  isSpeechSupported,
+  startListening,
+  type SpeechError,
+  type SpeechSession,
+} from "@/lib/speech";
 
 type Mode = "idle" | "listening" | "text";
+
+function errorMessage(err: SpeechError): string {
+  switch (err.kind) {
+    case "permission-denied":
+      return "마이크 권한이 필요합니다. 브라우저 설정에서 허용해 주세요.";
+    case "no-speech":
+      return "음성이 들리지 않았어요. 다시 시도해 주세요.";
+    case "network":
+      return "네트워크 문제로 음성 인식이 어려워요.";
+    case "unsupported":
+      return "이 브라우저는 음성 입력을 지원하지 않습니다.";
+    default:
+      return "음성 인식 중 문제가 발생했어요.";
+  }
+}
 
 export default function ChatPage() {
   const [search] = useSearchParams();
@@ -21,15 +37,18 @@ export default function ChatPage() {
   const chat = useChatSession(memoirId);
 
   const [mode, setMode] = useState<Mode>("idle");
-  const [recordingSupported, setRecordingSupported] = useState(true);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const [partial, setPartial] = useState("");
+  const [voiceError, setVoiceError] = useState<SpeechError | null>(null);
 
-  const sessionRef = useRef<RecordingSession | null>(null);
-  const stoppingRef = useRef(false);
+  const sessionRef = useRef<SpeechSession | null>(null);
+  const finalRef = useRef("");
+  const partialRef = useRef("");
+  const submittedRef = useRef(false);
   const autoStartedRef = useRef(false);
 
   useEffect(() => {
-    setRecordingSupported(isRecordingSupported());
+    setSpeechSupported(isSpeechSupported());
   }, []);
 
   useEffect(() => {
@@ -38,40 +57,60 @@ export default function ChatPage() {
     }
   }, [chat.memoir, navigate]);
 
-  // Abort any in-flight recording if the page unmounts mid-record.
+  // Clean up any in-flight speech session if the page unmounts mid-listen.
   useEffect(() => {
     return () => {
+      submittedRef.current = true;
       sessionRef.current?.abort();
     };
   }, []);
 
-  const startVoice = async () => {
+  const startVoice = () => {
+    setMode("listening");
+    setPartial("");
     setVoiceError(null);
-    try {
-      const session = await startRecording();
-      sessionRef.current = session;
-      setMode("listening");
-    } catch (e) {
-      const msg =
-        e instanceof Error && e.name === "NotAllowedError"
-          ? "마이크 권한이 필요합니다. 브라우저 설정에서 허용해 주세요."
-          : e instanceof Error
-            ? e.message
-            : "녹음을 시작할 수 없습니다.";
-      setVoiceError(msg);
-    }
+    finalRef.current = "";
+    partialRef.current = "";
+    submittedRef.current = false;
+
+    sessionRef.current = startListening({
+      onPartial: (text) => {
+        partialRef.current = text;
+        setPartial(text);
+      },
+      onFinal: (text) => {
+        finalRef.current = (finalRef.current + " " + text).trim();
+        partialRef.current = "";
+        setPartial("");
+      },
+      onError: (err) => setVoiceError(err),
+      onEnd: () => {
+        if (submittedRef.current) return;
+        submittedRef.current = true;
+        setMode("idle");
+        const text = (finalRef.current || partialRef.current).trim();
+        if (text) void chat.send(text);
+      },
+    });
   };
 
-  // Auto-start recording when navigated in with ?autoStart=1 (e.g. from HomePage).
+  const stopVoice = () => {
+    sessionRef.current?.stop();
+  };
+
+  // Auto-start when navigated in with ?autoStart=1 (e.g. from HomePage).
   useEffect(() => {
     if (autoStartedRef.current) return;
     if (search.get("autoStart") !== "1") return;
     if (chat.isLoading || chat.isSending) return;
-    if (!recordingSupported) return;
     if (mode !== "idle") return;
 
     autoStartedRef.current = true;
-    void startVoice();
+    if (speechSupported) {
+      startVoice();
+    } else {
+      setMode("text");
+    }
 
     // Strip the autoStart param so a manual refresh doesn't re-trigger.
     const next = new URLSearchParams(search);
@@ -82,46 +121,22 @@ export default function ChatPage() {
     search,
     chat.isLoading,
     chat.isSending,
-    recordingSupported,
+    speechSupported,
     mode,
     navigate,
   ]);
 
-  const stopVoice = async () => {
-    if (stoppingRef.current) return;
-    stoppingRef.current = true;
-    const session = sessionRef.current;
-    sessionRef.current = null;
-    setMode("idle");
-    if (!session) {
-      stoppingRef.current = false;
-      return;
-    }
-    try {
-      const { blob, filename } = await session.stop();
-      if (blob.size === 0) {
-        setVoiceError("녹음이 비어있어요. 다시 시도해 주세요.");
-        return;
-      }
-      await chat.sendVoice(blob, filename);
-    } catch (e) {
-      setVoiceError(e instanceof Error ? e.message : "녹음 처리 실패");
-    } finally {
-      stoppingRef.current = false;
-    }
-  };
-
   const handleMicClick = () => {
     if (chat.isSending || chat.isLoading) return;
     if (mode === "listening") {
-      void stopVoice();
+      stopVoice();
       return;
     }
-    if (!recordingSupported) {
+    if (!speechSupported) {
       setMode("text");
       return;
     }
-    void startVoice();
+    startVoice();
   };
 
   const isListening = mode === "listening";
@@ -166,7 +181,7 @@ export default function ChatPage() {
 
       {(chat.error || voiceError) && (
         <div className="mx-5 mt-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-          {voiceError ?? chat.error}
+          {voiceError ? errorMessage(voiceError) : chat.error}
         </div>
       )}
 
@@ -175,7 +190,7 @@ export default function ChatPage() {
         isSending={chat.isSending}
       />
 
-      {isListening && <ListeningIndicator partial="" />}
+      {isListening && <ListeningIndicator partial={partial} />}
 
       <button
         aria-label={isListening ? "녹음 종료" : "음성 입력"}

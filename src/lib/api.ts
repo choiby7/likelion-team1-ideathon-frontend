@@ -6,12 +6,7 @@ import {
   writeMemoirs,
   type MemoirMeta,
 } from "./storage";
-import {
-  createSession,
-  fetchHistory,
-  sendTextMessage,
-  sendVoiceMessage as sendVoice,
-} from "./chatApi";
+import { createSession, fetchHistory, sendTextMessage } from "./chatApi";
 import { generateSummary } from "./mockAi";
 
 const FALLBACK_TITLE = "제목 없는 이야기";
@@ -182,28 +177,6 @@ export async function sendChatMessage(
     createdAt: now,
   };
   const { aiText } = await sendTextMessage(memoirId, userText);
-  const aiMessage: Message = {
-    id: newMessageId(),
-    role: "ai",
-    text: aiText,
-    createdAt: Date.now(),
-  };
-  return appendAndPersist(memoirId, userMessage, aiMessage);
-}
-
-export async function sendVoiceMessage(
-  memoirId: string,
-  audio: Blob,
-  filename: string,
-): Promise<{ userMessage: Message; aiMessage: Message; memoir: Memoir }> {
-  const now = Date.now();
-  const { sttText, aiText } = await sendVoice(memoirId, audio, filename);
-  const userMessage: Message = {
-    id: newMessageId(),
-    role: "user",
-    text: sttText,
-    createdAt: now,
-  };
   const aiMessage: Message = {
     id: newMessageId(),
     role: "ai",
