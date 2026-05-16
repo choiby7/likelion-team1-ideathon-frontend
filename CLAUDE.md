@@ -24,6 +24,9 @@ There is no test runner configured. Verify changes by running `npm run build` (c
 - **React Router v6** with routes declared in `src/main.tsx`.
 - **Path alias**: `@/*` → `src/*` (configured in both `vite.config.ts` and `tsconfig.app.json` — must be kept in sync).
 - **No new npm packages were added for the data/voice layer.** Speech uses the native Web Speech API (`webkitSpeechRecognition`/`SpeechRecognition`). IDs use `crypto.randomUUID()`. Date formatting uses the built-in `Date`.
+- **Backend**: Spring Boot REST API at `VITE_API_BASE_URL` (set in `.env.local`). All HTTP goes through `src/lib/apiClient.ts` (`apiRequest<T>()`) which attaches `Authorization: Bearer <JWT>` and auto-retries once on 401 via `/api/auth/refresh`. The server wraps responses in `{ success, data, message }` — `apiRequest` unwraps `data` for callers.
+- **Auth**: Kakao OAuth via `${VITE_API_BASE_URL}/oauth2/authorization/kakao` (direct browser navigation, NOT an API call). Backend redirects to `{frontend}/auth/callback?token=<JWT>&isNewUser=<bool>`. `AuthContext` (`src/contexts/AuthContext.tsx`) holds user state; `ProtectedRoute` gates non-public routes.
+- **Deployment**: Vercel serves frontend; SPA fallback is in `vercel.json` (`/(.*)` → `/index.html`) — required so the OAuth callback URL doesn't 404.
 
 ## Architecture
 
@@ -43,21 +46,25 @@ Because `BottomNav` is `fixed`, every page must add bottom padding (≥ `pb-32`)
 
 ### Data layer
 
-All persistence goes through `src/lib/api.ts` — components and hooks never import from `src/lib/storage.ts` directly. This is the backend swap boundary: when the REST backend is ready, only `api.ts` function bodies change; all callers are unaffected.
+There are two persistence sources, glued together inside `src/lib/api.ts`:
 
-`src/lib/storage.ts` is the only file that touches `localStorage`. Keys:
-- `memoreal:memoirs:v1` — `Memoir[]`, full objects including embedded `Message[]`
-- `memoreal:activeDraftId:v1` — `string | null`, points to the current in-progress draft
+1. **Backend** owns `ChatMessage { sessionId, role, content, ... }` — accessed via `src/lib/chatApi.ts` (`createSession`, `sendTextMessage`, `fetchHistory`). The backend has **no Memoir/title/chapter/status concept**.
+2. **localStorage** (`src/lib/storage.ts`) owns memoir metadata (`title`, `chapter`, `status`, `createdAt`, `completedAt`). Keys are versioned:
+   - `memoreal:memoirs:v2` — `MemoirMeta[]` = `Omit<Memoir, "messages">` (metadata only; messages live on backend)
+   - `memoreal:activeDraftId:v2` — `string | null`
+   - On first load, `storage.ts` removes any leftover `v1` keys.
 
-The `:v1` suffix is intentional migration headroom — bump to `:v2` and migrate on read if the schema changes.
+`Memoir.id` **is** the backend `sessionId` (UUID). This mapping is the entire bridge between the two sources.
 
-`Memoir` embeds its `Message[]` directly (no separate messages collection). This is fine at ideathon scale and lets the UI work with a single object. If the backend normalizes messages, only `api.ts` changes.
+`api.ts` is the swap-seam — components/hooks never import from `chatApi.ts` or `storage.ts` directly. When backend adds a Memoir domain, only `api.ts` changes.
 
 **Key behaviors in `api.ts`:**
-- `sendChatMessage(memoirId, text)` is the per-turn atomic unit. It appends the user message, invokes the mock AI, appends the AI reply, derives the title, and persists — all in one call. There is no separate save action.
-- Title auto-generation: first user message's first 12 chars; fallback `"제목 없는 이야기"`. Title is re-derived on every `appendMessage` / `sendChatMessage` call until explicitly set via `updateMemoirTitle`.
+- `getMemoir(id)` / `getActiveDraft()` / `completeMemoir(id)` merge localStorage meta with `fetchHistory(id)` from the backend.
+- `createMemoir()` calls `createSession()` first, then stores meta under the returned sessionId.
+- `sendChatMessage(memoirId, text)` is the per-turn atomic unit: calls backend `/api/chat/message`, then `fetchHistory` to get the authoritative state, derives title, persists meta.
+- Title auto-generation: first user message's first 12 chars; fallback `"제목 없는 이야기"`. Re-derived on every send until a manual title-set is added.
 - Chapter numbering: `max(existing.chapter) + 1` at create time. Monotonic, never reused.
-- IDs: `crypto.randomUUID()` everywhere.
+- Backend has no summary endpoint — `MemoirContinuePage` shows the last user message verbatim instead of an LLM summary.
 
 ### `useChatSession` hook
 
@@ -71,32 +78,41 @@ Returns: `{ memoir, displayMessages, isLoading, isSending, error, send, complete
 
 ### Voice / mode state
 
-`ChatPage` owns a `mode` state: `"idle" | "listening" | "text"`.
+`ChatPage` owns a `mode` state: `"idle" | "listening" | "text"`. Voice transcription runs entirely in the browser via the native Web Speech API — backend `/api/chat/voice` (Clova STT) was removed from the frontend in favor of this approach.
 
 - **idle** — shows `<MessageList>` and the floating yellow mic button.
-- **listening** — mounts `<ListeningPanel>` (replaces MessageList). `ListeningPanel` owns the `SpeechSession` lifecycle (start on mount, abort on unmount). It calls `onTranscript(text)` exactly once, guarded by a ref. The parent then calls `send(text)` if text is non-empty. Do not add a second submit path from `ChatPage`.
-- **text** — renders `<TextInputSheet>` as an overlay. This mode is entered when the mic button is pressed on a browser where `isSpeechSupported()` returns false (Safari iOS). Detection runs once on mount.
+- **listening** — `ChatPage` calls `startListening(...)` directly (no separate `ListeningPanel`). Callbacks: `onPartial` updates a `partial` state for live preview, `onFinal` accumulates final transcript, `onEnd` triggers `chat.send(text)` once. `<ListeningIndicator>` shows the partial text and a decorative waveform.
+- **text** — renders `<TextInputSheet>` as an overlay. Entered when the mic button is pressed on a browser where `isSpeechSupported()` returns false (Safari iOS). Detection runs once on mount.
 
-`src/lib/speech.ts` wraps `webkitSpeechRecognition`/`SpeechRecognition` with `lang="ko-KR"`, `continuous=true`, `interimResults=true`. Errors are mapped to a tagged union (`unsupported | permission-denied | no-speech | network | other`). `startListening()` returns a `SpeechSession` with `stop()` and `abort()` — `ListeningPanel` calls `abort()` on unmount.
+`?autoStart=1` query param triggers automatic mic start on mount (used from `HomePage`'s "이야기 말하기" button). Param is stripped after first run so refresh doesn't re-trigger.
 
-`<Waveform>` (7 yellow bars, CSS `@keyframes wave`) is purely decorative — it is NOT driven by real mic amplitude. We deliberately did NOT use `getUserMedia` + `AnalyserNode` because the Web Speech API already holds the mic; a second `getUserMedia` call would trigger a duplicate permission prompt.
+`src/lib/speech.ts` wraps `webkitSpeechRecognition`/`SpeechRecognition` with `lang="ko-KR"`, `continuous=true`, `interimResults=true`. Errors are mapped to a tagged union (`unsupported | permission-denied | no-speech | network | other`). `startListening()` returns a `SpeechSession` with `stop()` and `abort()` — `ChatPage` calls `abort()` on unmount.
 
-### Mock AI swap point
+The waveform (7 yellow bars, CSS `@keyframes wave`) is purely decorative — it is NOT driven by real mic amplitude. We deliberately did NOT use `getUserMedia` + `AnalyserNode` because the Web Speech API already holds the mic; a second `getUserMedia` call would trigger a duplicate permission prompt.
 
-`src/lib/mockAi.ts` exports `INITIAL_AI_GREETING` and `generateReply(history)`. `generateReply` picks from an 8-line Korean response pool using `history.filter(role=user).length % POOL.length` — deterministic rotation, not random, so React StrictMode double-invoke and QA remain predictable. 800 ms simulated latency.
+### AI
 
-When the backend LLM endpoint is ready, replace `generateReply`'s body (or swap the import in `api.ts`'s `sendChatMessage`). Do not scatter AI call sites elsewhere — `mockAi.ts` is the single seam.
+AI responses come from the backend (`POST /api/chat/message` → `{ content }`). `src/lib/mockAi.ts` now only exports `INITIAL_AI_GREETING` (used as the in-memory placeholder when `/chat` is opened with no memoir yet). The old `generateReply` and `generateSummary` mocks were removed when backend integration landed.
 
 ## Routing
 
-Defined in `src/main.tsx`.
+Defined in `src/main.tsx`. Routes wrapped in `<ProtectedRoute>` redirect to `/login` if no user is loaded.
 
-| Path | Component | Notes |
-|---|---|---|
-| `/chat` | `ChatPage` | `?memoirId=X` resumes memoir X; omitted = new draft flow |
-| `/autobiography` | `AutobiographyPage` | Lists all memoirs; drafts first (updatedAt desc), then completed (chapter desc) |
-| `/autobiography/:id` | `MemoirReaderPage` | Read-only transcript; shows "이어쓰기" button if status is still `draft` |
-| `/`, `/home`, `/help` | redirect → `/chat` | Placeholders; replace with real pages when implemented |
+| Path | Component | Protected? | Notes |
+|---|---|---|---|
+| `/` | redirect → `/onboarding` | — | |
+| `/onboarding` | `OnboardingPage` | no | Kakao "시작하기" button → `${BASE}/oauth2/authorization/kakao` |
+| `/login` | `LoginPage` | no | Same Kakao redirect flow |
+| `/auth/callback` | `AuthCallbackPage` | no | Reads `?token=&isNewUser=`, calls `/api/auth/me`, routes to `/mic-permission` (new) or `/home` (returning) |
+| `/mic-permission` | `MicPermissionPage` | yes | One-time onboarding step |
+| `/home` | `HomePage` | yes | "이야기 말하기" button clears active draft + navigates `/chat?autoStart=1` |
+| `/chat` | `ChatPage` | yes | `?memoirId=X` resumes memoir; omitted = new draft flow. `?autoStart=1` auto-triggers mic |
+| `/autobiography` | `AutobiographyPage` | yes | Lists all memoirs; drafts first (updatedAt desc), then completed (chapter desc) |
+| `/autobiography/:id` | `MemoirReaderPage` | yes | Read-only transcript |
+| `/autobiography/:id/continue` | `MemoirContinuePage` | yes | Pre-resume screen for draft memoirs; redirects to `/autobiography` if memoir is completed |
+| `/help` | `HelpPage` | yes | |
+| `/settings` | `SettingsPage` | yes | Includes account + logout |
+| `/settings/narrator` | `NarratorSettingsPage` | yes | |
 
 ## Design tokens (from Figma)
 
