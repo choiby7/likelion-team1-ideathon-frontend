@@ -17,22 +17,22 @@ type HelpItem = {
 const helpItems: HelpItem[] = [
   {
     title: "서비스는 어떻게\n이용하나요?",
-    url: "https://www.notion.so/",
+    url: "https://dashing-tire-97c.notion.site/Memoreal-3633708d8bce807083a1cc7dfd4ee8a8?showMoveTo=true&saveParent=true",
     icon: helpServiceIcon,
   },
   {
     title: "내 목소리가 어떻게\n책이 되나요?",
-    url: "https://www.notion.so/",
+    url: "https://dashing-tire-97c.notion.site/Memoreal-3633708d8bce807083a1cc7dfd4ee8a8?showMoveTo=true&saveParent=true",
     icon: helpVoiceIcon,
   },
   {
     title: "가족과 어떻게\n공유하나요?",
-    url: "https://www.notion.so/",
+    url: "https://dashing-tire-97c.notion.site/Memoreal-3633708d8bce807083a1cc7dfd4ee8a8?showMoveTo=true&saveParent=true",
     icon: helpFamilyIcon,
   },
   {
     title: "상담원과 직접\n통화하고 싶어요",
-    url: "https://www.notion.so/",
+    url: "https://dashing-tire-97c.notion.site/Memoreal-3633708d8bce807083a1cc7dfd4ee8a8?showMoveTo=true&saveParent=true",
     icon: helpCallIcon,
   },
 ];
@@ -122,7 +122,7 @@ function HelpPage() {
 
         {/* 상담원 연결 */}
         <button
-          onClick={() => openNotion("https://www.notion.so/")}
+          onClick={() => alert("개발 예정이에요.")}
           className="mt-20 flex h-[60px] w-full items-center justify-center gap-3 rounded-[10px] bg-[#ffcc00] text-[19px] font-medium text-[#222] transition hover:-translate-y-1 hover:shadow-lg"
         >
           <img
